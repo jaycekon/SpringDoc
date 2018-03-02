@@ -286,3 +286,546 @@ public class DefaultServiceLocator {
 }
 ```
 
+
+
+
+
+## 1.4. Dependencies
+
+A typical enterprise application does not consist of a single object (or bean in the Spring parlance). Even the simplest application has a few objects that work together to present what the end-user sees as a coherent application. 
+
+典型的企业应用程序不包含单个对象（或Spring中的bean）。即使最简单的应用程序也有几个对象一起工作来展示最终用户将其视为一个连贯的应用程序。
+
+
+
+### 1.4.1. Dependency Injection
+
+*Dependency injection* (DI) is a process whereby objects define their dependencies, that is, the other objects they work with, only through constructor arguments, arguments to a factory method, or properties that are set on the object instance after it is constructed or returned from a factory method. The container then *injects* those dependencies when it creates the bean. 
+
+依赖注入（DI）是一个过程，通过这种过程，对象可以通过构造函数参数，工厂方法参数或者在构造或返回对象实例后设置的属性来定义它们的依赖关系，也就是说，它们使用的其他对象从工厂方法。容器在创建bean时会注入这些依赖关系。
+
+
+
+
+
+#### Constructor-based dependency injection
+
+*Constructor-based* DI is accomplished by the container invoking a constructor with a number of arguments, each representing a dependency.
+
+构造方法注入是通过容器调用类的带参构造方法进行创建。基于构造器的DI通过容器调用具有多个参数的构造函数完成，每个参数表示一个依赖项
+
+```
+public class SimpleMovieLister {
+
+    // the SimpleMovieLister has a dependency on a MovieFinder
+    private MovieFinder movieFinder;
+
+    // a constructor so that the Spring container can inject a MovieFinder
+    public SimpleMovieLister(MovieFinder movieFinder) {
+        this.movieFinder = movieFinder;
+    }
+
+    // business logic that actually uses the injected MovieFinder is omitted...
+}
+```
+
+
+
+##### Constructor argument type matching
+
+In the preceding scenario, the container *can* use type matching with simple types if you explicitly specify the type of the constructor argument using the `type` attribute. For example:
+
+```
+<bean id="exampleBean" class="examples.ExampleBean">
+    <constructor-arg type="int" value="7500000"/>
+    <constructor-arg type="java.lang.String" value="42"/>
+</bean>
+```
+
+
+
+##### Constructor argument index
+
+Use the `index` attribute to specify explicitly the index of constructor arguments. For example:
+
+```
+<bean id="exampleBean" class="examples.ExampleBean">
+    <constructor-arg index="0" value="7500000"/>
+    <constructor-arg index="1" value="42"/>
+</bean>
+```
+
+
+
+##### Constructor argument name
+
+You can also use the constructor parameter name for value disambiguation:
+
+```
+<bean id="exampleBean" class="examples.ExampleBean">
+    <constructor-arg name="years" value="7500000"/>
+    <constructor-arg name="ultimateAnswer" value="42"/>
+</bean>
+```
+
+
+
+#### Setter-based dependency injection
+
+*Setter-based* DI is accomplished by the container calling setter methods on your beans after invoking a no-argument constructor or no-argument `static` factory method to instantiate your bean.
+
+在通过无参构造方法或静态工厂构造方法创建实例后，通过调用对象的set 方法进行注入。
+
+```
+public class SimpleMovieLister {
+
+    // the SimpleMovieLister has a dependency on the MovieFinder
+    private MovieFinder movieFinder;
+
+    // a setter method so that the Spring container can inject a MovieFinder
+    public void setMovieFinder(MovieFinder movieFinder) {
+        this.movieFinder = movieFinder;
+    }
+
+    // business logic that actually uses the injected MovieFinder is omitted...
+}
+```
+
+
+
+
+
+####  Dependency resolution process
+
+The container performs bean dependency resolution as follows:
+
+- The `ApplicationContext` is created and initialized with configuration metadata that describes all the beans. Configuration metadata can be specified via XML, Java code, or annotations.
+- For each bean, its dependencies are expressed in the form of properties, constructor arguments, or arguments to the static-factory method if you are using that instead of a normal constructor. These dependencies are provided to the bean, *when the bean is actually created*.
+- Each property or constructor argument is an actual definition of the value to set, or a reference to another bean in the container.
+- Each property or constructor argument which is a value is converted from its specified format to the actual type of that property or constructor argument. By default Spring can convert a value supplied in string format to all built-in types, such as `int`, `long`, `String`, `boolean`, etc.
+
+容器执行Bean 的依赖解析按照以下流程：
+
+- 根据Bean 的相关配置文件，创建并初始化**ApplicationContext **。 配置元数据可以根据XML，JavaCode 或者注解进行设置。
+- 对于每个bean，如果使用该属性而不是普通构造函数，则它的依赖关系以属性，构造函数参数或静态工厂方法的参数的形式表示。这些依赖将会在Bean 创建的时候进行提供。
+- 每一个属性或者构造方法的参数都是需要实际定义的。
+- 作为值的每个属性或构造函数参数都从其指定的格式转换为该属性或构造函数参数的实际类型。默认情况下，Spring可以将以字符串格式提供的值转换为所有内置类型， such as `int`, `long`, `String`, `boolean`, etc.
+
+
+
+The Spring container validates the configuration of each bean as the container is created. However, the bean properties themselves are not set until the bean *is actually created*. 
+
+容器在创建的时候会检查每一个Bean 的配置，但是在创建Bean之前不会进行设置相关配置。
+
+
+
+Beans that are singleton-scoped and set to be pre-instantiated (the default) are created when the container is created. Scopes are defined in [Bean scopes](https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/core.html#beans-factory-scopes). Otherwise, the bean is created only when it is requested.
+
+单例以及预设创建的Bean 会在容器创建的时候进行初始化。否则，Bean 将会在调用的时候才会被创建。
+
+
+
+
+
+the Spring IoC container detects this circular reference at runtime, and throws a `BeanCurrentlyInCreationException`.
+
+Spring IOC 在检测到循环依赖后，会返回 **BeanCurrentlyInCreationException **。
+
+
+
+
+
+### 1.4.2. Dependencies and configuration in detail
+
+As mentioned in the previous section, you can define bean properties and constructor arguments as references to other managed beans (collaborators), or as values defined inline. Spring’s XML-based configuration metadata supports sub-element types within its `<property/>` and `<constructor-arg/>` elements for this purpose.
+
+上述章节提到，您可以将bean属性和构造函数参数定义为对其他被容器管理的Bean（协作者）的引用，或者定义为内联的值。Spring 基于XML 的配置通过`<property/>` 和`<constructor-arg/>` 提供这种操作。
+
+
+
+#### Straight values (primitives, Strings, and so on)
+
+The `value` attribute of the `<property/>` element specifies a property or constructor argument as a human-readable string representation.
+
+ `<property/>` 标签中的 `value` 属性为Bean 提供了构造函数或者变量属性可读的值。（<property />元素的value属性将属性或构造函数参数指定为可读的字符串表示形式。）
+
+```
+<bean id="myDataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+    <!-- results in a setDriverClassName(String) call -->
+    <property name="driverClassName" value="com.mysql.jdbc.Driver"/>
+    <property name="url" value="jdbc:mysql://localhost:3306/mydb"/>
+    <property name="username" value="root"/>
+    <property name="password" value="masterkaoli"/>
+</bean>
+```
+
+
+
+You can also configure a `java.util.Properties` instance as:
+
+```
+<bean id="mappings"
+    class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+
+    <!-- typed as a java.util.Properties -->
+    <property name="properties">
+        <value>
+            jdbc.driver.className=com.mysql.jdbc.Driver
+            jdbc.url=jdbc:mysql://localhost:3306/mydb
+        </value>
+    </property>
+</bean>
+```
+
+
+
+##### The idref element
+
+The `idref` element is simply an error-proof way to pass the *id* (string value - not a reference) of another bean in the container to a `<constructor-arg/>` or `<property/>` element.
+
+`idref` 标签只是一种防错的方式，可以将容器中另一个bean的id（字符串值 - 不是引用）传递给<constructor-arg />或<property />元素。
+
+```
+<bean id="theTargetBean" class="..."/>
+
+<bean id="theClientBean" class="...">
+    <property name="targetName">
+        <idref bean="theTargetBean"/>
+    </property>
+</bean>
+```
+
+
+
+Typos are only discovered (with most likely fatal results) when the `client` bean is actually instantiated. If the `client` bean is a [prototype](https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/core.html#beans-factory-scopes) bean, this typo and the resulting exception may only be discovered long after the container is deployed.
+
+错别字只有在Bean 在实际创建中才会被发现。如果客户端bean是原型bean，则此类型错误和生成的异常可能仅在部署容器后很长时间才能发现。
+
+
+
+The `local` attribute on the `idref` element is no longer supported in the 4.0 beans xsd since it does not provide value over a regular `bean` reference anymore. Simply change your existing `idref local` references to `idref bean` when upgrading to the 4.0 schema.
+
+idref 中的local 属性在4.0 beans xsd 之后不再支持，因为它不提供对Bean 的引用。我们如果需要使用idref 标签 ，只需要修改成idref bean 即可。
+
+
+
+#### References to other beans (collaborators)
+
+The `ref` element is the final element inside a `<constructor-arg/>` or `<property/>` definition element. Here you set the value of the specified property of a bean to be a reference to another bean (a collaborator) managed by the container. The referenced bean is a dependency of the bean whose property will be set, and it is initialized on demand as needed before the property is set. (If the collaborator is a singleton bean, it may be initialized already by the container.) All references are ultimately a reference to another object. Scoping and validation depend on whether you specify the id/name of the other object through the `bean`, `local,` or `parent` attributes.
+
+Ref 标签是 `<constructor-arg/>` or `<property/>` 中定义的最后一个标签。你可以通过ref 标签指定当前Bean 对容器中另外的Bean进行依赖。该依赖将会在Bean创建时进行初始化和设置（如果该依赖是单例，则会在容器中初始换好）。范围和验证取决于您是通过bean，local或parent属性指定另一个对象的id / name。（4.0 beans xsd 之后不再支持local 属性）
+
+
+
+#### Inner beans
+
+A `<bean/>` element inside the `<property/>` or `<constructor-arg/>` elements defines a so-called *inner bean*.
+
+ `<property/>` or `<constructor-arg/>`  中的Bean 标签被称为内部类。
+
+```
+<bean id="outer" class="...">
+    <!-- instead of using a reference to a target bean, simply define the target bean inline -->
+    <property name="target">
+        <bean class="com.example.Person"> <!-- this is the inner bean -->
+            <property name="name" value="Fiona Apple"/>
+            <property name="age" value="25"/>
+        </bean>
+    </property>
+</bean>
+```
+
+Inner beans are *always* anonymous and they are *always* created with the outer bean.
+
+内部类通常都是匿名的，并且随着外部类一起被创建。
+
+
+
+
+
+#### Collections
+
+In the `<list/>`, `<set/>`, `<map/>`, and `<props/>` elements, you set the properties and arguments of the Java `Collection` types `List`, `Set`, `Map`, and `Properties`, respectively.
+
+```
+<bean id="moreComplexObject" class="example.ComplexObject">
+    <!-- results in a setAdminEmails(java.util.Properties) call -->
+    <property name="adminEmails">
+        <props>
+            <prop key="administrator">administrator@example.org</prop>
+            <prop key="support">support@example.org</prop>
+            <prop key="development">development@example.org</prop>
+        </props>
+    </property>
+    <!-- results in a setSomeList(java.util.List) call -->
+    <property name="someList">
+        <list>
+            <value>a list element followed by a reference</value>
+            <ref bean="myDataSource" />
+        </list>
+    </property>
+    <!-- results in a setSomeMap(java.util.Map) call -->
+    <property name="someMap">
+        <map>
+            <entry key="an entry" value="just some string"/>
+            <entry key ="a ref" value-ref="myDataSource"/>
+        </map>
+    </property>
+    <!-- results in a setSomeSet(java.util.Set) call -->
+    <property name="someSet">
+        <set>
+            <value>just some string</value>
+            <ref bean="myDataSource" />
+        </set>
+    </property>
+</bean>
+```
+
+
+
+##### Collection merging
+
+That is, the child collection’s values are the result of merging the elements of the parent and child collections, with the child’s collection elements overriding values specified in the parent collection.
+
+也就是说，子集合的值是合并父集合和子集合元素的结果，子集合元素覆盖父集合中指定的值。
+
+```
+<beans>
+    <bean id="parent" abstract="true" class="example.ComplexObject">
+        <property name="adminEmails">
+            <props>
+                <prop key="administrator">administrator@example.com</prop>
+                <prop key="support">support@example.com</prop>
+            </props>
+        </property>
+    </bean>
+    <bean id="child" parent="parent">
+        <property name="adminEmails">
+            <!-- the merge is specified on the child collection definition -->
+            <props merge="true">
+                <prop key="sales">sales@example.com</prop>
+                <prop key="support">support@example.co.uk</prop>
+            </props>
+        </property>
+    </bean>
+<beans>
+```
+
+
+
+##### Strongly-typed collection
+
+If you are using Spring to dependency-inject a strongly-typed `Collection` into a bean, you can take advantage of Spring’s type-conversion support such that the elements of your strongly-typed `Collection` instances are converted to the appropriate type prior to being added to the `Collection`.
+
+如果你使用Spring 进行强数据类型Collection 的注入，你可以利用Spring 中的类型转换，将数据转换成对应Collection 的强数据类型。
+
+```
+public class Foo {
+
+    private Map<String, Float> accounts;
+
+    public void setAccounts(Map<String, Float> accounts) {
+        this.accounts = accounts;
+    }
+}
+```
+
+```
+<beans>
+    <bean id="foo" class="x.y.Foo">
+        <property name="accounts">
+            <map>
+                <entry key="one" value="9.99"/>
+                <entry key="two" value="2.75"/>
+                <entry key="six" value="3.99"/>
+            </map>
+        </property>
+    </bean>
+</beans>
+```
+
+
+
+#### XML shortcut with the p-namespace
+
+The p-namespace enables you to use the `bean` element’s attributes, instead of nested `<property/>` elements, to describe your property values and/or collaborating beans.
+
+在 xml 中使用 p-namespace 可以代替在 </bean> 标签中使用<property/> 标签
+
+```
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:p="http://www.springframework.org/schema/p"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean name="classic" class="com.example.ExampleBean">
+        <property name="email" value="foo@bar.com"/>
+    </bean>
+
+    <bean name="p-namespace" class="com.example.ExampleBean"
+        p:email="foo@bar.com"/>
+</beans>
+```
+
+The following example shows two XML snippets that resolve to the same result: The first uses standard XML format and the second uses the p-namespace.
+
+上述的示例代码中，两个XML 配置起到相同的作用。第一个采用XML 格式，第二个则使用p-namespace 方式
+
+
+
+The p-namespace is not as flexible as the standard XML format. For example, the format for declaring property references clashes with properties that end in `Ref`, whereas the standard XML format does not. 
+
+p-namespace 并没有XML 形式那么灵活，例如，p-namespace 的ref 引用 并没有校验类型，就会容易出现类型异常。
+
+
+
+#### XML shortcut with the c-namespace
+
+Similar to the [XML shortcut with the p-namespace](https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/core.html#beans-p-namespace), the *c-namespace*, newly introduced in Spring 3.1, allows usage of inlined attributes for configuring the constructor arguments rather then nested `constructor-arg` elements.
+
+与p-namespace 类似，c-namespace 命名方式从Spring 3.1 开始创建，允许使用相应的命名方式来设置构造函数的参数。
+
+```
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:c="http://www.springframework.org/schema/c"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean id="bar" class="x.y.Bar"/>
+    <bean id="baz" class="x.y.Baz"/>
+
+    <!-- traditional declaration -->
+    <bean id="foo" class="x.y.Foo">
+        <constructor-arg ref="bar"/>
+        <constructor-arg ref="baz"/>
+        <constructor-arg value="foo@bar.com"/>
+    </bean>
+
+    <!-- c-namespace declaration -->
+    <bean id="foo" class="x.y.Foo" c:bar-ref="bar" c:baz-ref="baz" c:email="foo@bar.com"/>
+
+</beans>
+```
+
+
+
+For the rare cases where the constructor argument names are not available (usually if the bytecode was compiled without debugging information), one can use fallback to the argument indexes:
+
+对于变量名称不可用的特殊情况，我们可以采用变量下标来设置：
+
+```
+<!-- c-namespace index declaration -->
+<bean id="foo" class="x.y.Foo" c:_0-ref="bar" c:_1-ref="baz"/>
+```
+
+
+
+In practice, the constructor resolution [mechanism](https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/core.html#beans-factory-ctor-arguments-resolution) is quite efficient in matching arguments so unless one really needs to, we recommend using the name notation through-out your configuration.
+
+实际上，构造函数解析机制在匹配参数方面非常有效，因此除非真的需要，否则我们建议在整个配置中使用名称符号。
+
+
+
+
+
+### 1.4.3. Using depends-on
+
+If a bean is a dependency of another that usually means that one bean is set as a property of another. Typically you accomplish this with the [`ref` element](https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/core.html#beans-ref-element) in XML-based configuration metadata. However, sometimes dependencies between beans are less direct; for example, a static initializer in a class needs to be triggered, such as database driver registration. The `depends-on`attribute can explicitly force one or more beans to be initialized before the bean using this element is initialized. The following example uses the `depends-on` attribute to express a dependency on a single bean:
+
+如果一个Bean A是另一个Bean B 的依赖，那么Bean A 就是Bean B 中的某个属性。通常我们可以使用 ref 标签来完成这个元数据的设置。但是，有时候Bean 之间的依赖性并没有那么直接，例如：类中的静态初始化器需要被触发，例如数据库驱动程序注册。depends-on属性可以在使用此元素的Bean 初始化之前，明确强制一个或多个bea n 被初始化。
+
+```
+<bean id="beanOne" class="ExampleBean" depends-on="manager"/>
+<bean id="manager" class="ManagerBean" />
+```
+
+
+
+
+
+### 1.4.4. Lazy-initialized beans
+
+By default, `ApplicationContext` implementations eagerly create and configure all [singleton](https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/core.html#beans-factory-scopes-singleton) beans as part of the initialization process. Generally, this pre-instantiation is desirable, because errors in the configuration or surrounding environment are discovered immediately, as opposed to hours or even days later. When this behavior is *not* desirable, you can prevent pre-instantiation of a singleton bean by marking the bean definition as lazy-initialized. A lazy-initialized bean tells the IoC container to create a bean instance when it is first requested, rather than at startup.
+
+通常情况下，ApplicationContext 在初始化的过程中会默认将所有单例的Bean 进行初始化配置。通常，这种行为是可取的，因为这种操作可以提早发现配置中是否存在异常，而不是到几个小时或几天后才发现。当我们不需要程序进行默认初始化，可以通过设置 lazy-initialized 来懒加载Bean。
+
+```
+<beans default-lazy-init="true">
+    <!-- no beans will be pre-instantiated... -->
+</beans>
+```
+
+
+
+
+
+
+
+### 1.4.5. Autowiring collaborators
+
+The Spring container can *autowire* relationships between collaborating beans. You can allow Spring to resolve collaborators (other beans) automatically for your bean by inspecting the contents of the `ApplicationContext`. Autowiring has the following advantages:
+
+Spring 可以自动关联Bean 之间的依赖关系。你可以通过Spring 检查ApplicationContext 的内容来自动为你的Bean 处理相关依赖。自动装配具有以下优点：
+
+- Autowiring can significantly reduce the need to specify properties or constructor arguments. (Other mechanisms such as a bean template [discussed elsewhere in this chapter](https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/core.html#beans-child-bean-definitions) are also valuable in this regard.)
+- Autowiring can update a configuration as your objects evolve. For example, if you need to add a dependency to a class, that dependency can be satisfied automatically without you needing to modify the configuration. Thus autowiring can be especially useful during development, without negating the option of switching to explicit wiring when the code base becomes more stable.
+- 自动装配可以显着减少指定属性或构造函数参数的需要。(其他机制，例如本章别处讨论的bean模板，在这方面也很有价值)
+- 随着对象的发展，自动装配可以更新配置。例如，如果需要向类中添加依赖项，则可以自动满足该依赖项，而无需修改配置。 因此，自动装配在开发过程中可能特别有用，而且不会影响代码库变得更加稳定时切换到显式布线的选项。
+
+
+
+### 1.4.6. Method injection
+
+In most application scenarios, most beans in the container are [singletons](https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/core.html#beans-factory-scopes-singleton). When a singleton bean needs to collaborate with another singleton bean, or a non-singleton bean needs to collaborate with another non-singleton bean, you typically handle the dependency by defining one bean as a property of the other. A problem arises when the bean lifecycles are different. Suppose singleton bean A needs to use non-singleton (prototype) bean B, perhaps on each method invocation on A. The container only creates the singleton bean A once, and thus only gets one opportunity to set the properties. The container cannot provide bean A with a new instance of bean B every time one is needed.
+
+方法注入主要是用于解决单例Bean 引用非单例Bean 所出现的问题。
+
+
+
+## 1.5. Bean scopes
+
+You can control not only the various dependencies and configuration values that are to be plugged into an object that is created from a particular bean definition, but also the *scope* of the objects created from a particular bean definition. 
+
+你不仅可以控制创建对象的依赖和相关配置，还可以控制从特定的bean定义创建的对象的范围。
+
+| Scope                                    | Description                              |
+| ---------------------------------------- | ---------------------------------------- |
+| [singleton](https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/core.html#beans-factory-scopes-singleton) | (Default) Scopes a single bean definition to a single object instance per Spring IoC container. |
+| [prototype](https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/core.html#beans-factory-scopes-prototype) | Scopes a single bean definition to any number of object instances. |
+| [request](https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/core.html#beans-factory-scopes-request) | Scopes a single bean definition to the lifecycle of a single HTTP request; that is, each HTTP request has its own instance of a bean created off the back of a single bean definition. Only valid in the context of a web-aware Spring `ApplicationContext`. |
+| [session](https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/core.html#beans-factory-scopes-session) | Scopes a single bean definition to the lifecycle of an HTTP `Session`. Only valid in the context of a web-aware Spring `ApplicationContext`. |
+| [application](https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/core.html#beans-factory-scopes-application) | Scopes a single bean definition to the lifecycle of a `ServletContext`. Only valid in the context of a web-aware Spring `ApplicationContext`. |
+| [websocket](https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/web.html#websocket-stomp-websocket-scope) | Scopes a single bean definition to the lifecycle of a `WebSocket`. Only valid in the context of a web-aware Spring `ApplicationContext`. |
+
+ 
+
+### 1.5.1. The singleton scope
+
+Only one *shared* instance of a singleton bean is managed, and all requests for beans with an id or ids matching that bean definition result in that one specific bean instance being returned by the Spring container.
+
+容器中只管理该对象的一个实例，在请求该Bean的时候，只会返回同一个Bean。（只管理单个bean的一个共享实例，并且具有与该bean定义匹配的id或id的bean的所有请求都会导致Spring容器返回一个特定的bean实例。）
+
+
+
+*The singleton scope is the default scope in Spring*. To define a bean as a singleton in XML, you would write, for example:
+
+Bean 单例作用范围是默认形式，在XML 定义中：
+
+```
+<bean id="accountService" class="com.foo.DefaultAccountService"/>
+
+<!-- the following is equivalent, though redundant (singleton scope is the default) -->
+<bean id="accountService" class="com.foo.DefaultAccountService" scope="singleton"/>
+```
+
+
+
+### 1.5.2. The prototype scope
+
+The non-singleton, prototype scope of bean deployment results in the *creation of a new bean instance* every time a request for that specific bean is made. 
+
+Prototype 作用范围即，每次在创建一个新的Bean 的时候，都会为其创建一个新的依赖。
+
+![https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/images/prototype.png][https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/images/prototype.png]

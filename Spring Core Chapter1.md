@@ -820,7 +820,7 @@ Bean 单例作用范围是默认形式，在XML 定义中：
 <bean id="accountService" class="com.foo.DefaultAccountService" scope="singleton"/>
 ```
 
-
+![https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/images/singleton.png](https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/images/singleton.png)
 
 ### 1.5.2. The prototype scope
 
@@ -828,4 +828,48 @@ The non-singleton, prototype scope of bean deployment results in the *creation o
 
 Prototype 作用范围即，每次在创建一个新的Bean 的时候，都会为其创建一个新的依赖。
 
-![https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/images/prototype.png][https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/images/prototype.png]
+![https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/images/prototype.png](https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/images/prototype.png)
+
+In contrast to the other scopes, Spring does not manage the complete lifecycle of a prototype bean: the container instantiates, configures, and otherwise assembles a prototype object, and hands it to the client, with no further record of that prototype instance. 
+
+与其他作用范围区别，Spring 并不管理prototype 类型的生命周期：容器实例化，配置和以其他方式组装原型对象，并将其交给客户端，而后不再记录该原型实例。
+
+
+
+Thus, although *initialization* lifecycle callback methods are called on all objects regardless of scope, in the case of prototypes, configured *destruction* lifecycle callbacks are *not* called.
+
+因此，尽管所有对象在生命周期上都会调用初始化生命周期回调方法，但是在prototype 类型中，并不调用配置的销毁生命周期回调。
+
+
+
+### 1.5.3. Singleton beans with prototype-bean dependencies
+
+You cannot dependency-inject a prototype-scoped bean into your singleton bean, because that injection occurs only*once*, when the Spring container is instantiating the singleton bean and resolving and injecting its dependencies. If you need a new instance of a prototype bean at runtime more than once, see [Method injection](https://docs.spring.io/spring/docs/5.0.5.BUILD-SNAPSHOT/spring-framework-reference/core.html#beans-factory-method-injection)
+
+如果你想要在单例作用范围的Bean 中引入 原型作用范围的Bean，你需要借助 Method Injection 的相关知识。
+
+
+
+### 1.5.4. Request, session, application, and WebSocket scopes
+
+上述作用域只适用于 Web-Aware 类型的ApplicationContext（例如 XmlWebApplicationContext）
+
+
+
+#### Initial web configuration
+
+To support the scoping of beans at the `request`, `session`, `application`, and `websocket` levels (web-scoped beans), some minor initial configuration is required before you define your beans. (This initial setup is *not* required for the standard scopes, `singleton` and `prototype`.)
+
+为了提供Request，session，application以及websocket 的作用范围，你需要完善一些Web 的相关配置。
+
+`DispatcherServlet`, `RequestContextListener`, and `RequestContextFilter` all do exactly the same thing, namely bind the HTTP request object to the `Thread` that is servicing that request. This makes beans that are request- and session-scoped available further down the call chain.
+
+`DispatcherServlet`, `RequestContextListener`, and `RequestContextFilter` 做的是同样的事情，主要就是用于拦截Http 请求，以至于能够启动Request 以及 session 作用范围。
+
+
+
+#### Scoped beans as dependencies
+
+The Spring IoC container manages not only the instantiation of your objects (beans), but also the wiring up of collaborators (or dependencies). If you want to inject (for example) an HTTP request scoped bean into another bean of a longer-lived scope, you may choose to inject an AOP proxy in place of the scoped bean. That is, you need to inject a proxy object that exposes the same public interface as the scoped object but that can also retrieve the real target object from the relevant scope (such as an HTTP request) and delegate method calls onto the real object.
+
+Spring IoC容器不仅管理对象（bean）的实例化，还管理协作者（或依赖项）的连接。 如果您想要将HTTP请求范围的bean注入（例如）一个更长寿命范围的另一个bean中，您可以选择注入一个AOP代理来代替范围bean。 也就是说，您需要注入一个代理对象，该对象公开与作用域对象相同的公共接口，但也可以从相关作用域（例如HTTP请求）中检索真实目标对象，并将方法调用委托给实际对象。
